@@ -1,4 +1,5 @@
-﻿namespace D2DRender
+﻿
+namespace RenderDemo
 {
     partial class Form1
     {
@@ -37,3 +38,4 @@
         #endregion
     }
 }
+
