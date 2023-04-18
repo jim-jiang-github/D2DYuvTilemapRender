@@ -41,6 +41,7 @@ public:
         int get() { return Y + Height; }
     }
     void SetBounds(float x, float y, float w, float h);
+    void OnFrame(System::IntPtr yData, System::IntPtr uData, System::IntPtr vData, int yStride, int uStride, int vStride, int width, int height);
     virtual void OnRendered(RenderGraphics^ g, float clientWidth, float clientHeight);
 internal:
     void OnRenderedInternal();

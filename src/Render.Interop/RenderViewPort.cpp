@@ -30,6 +30,17 @@ void RenderViewPort::SetBounds(float x, float y, float w, float h)
     }
 }
 
+void RenderViewPort::OnFrame(System::IntPtr yData, System::IntPtr uData, System::IntPtr vData, int yStride, int uStride, int vStride, int width, int height) 
+{
+    if (pDirect2DViewPort)
+    {
+        unsigned char* pYData = reinterpret_cast<unsigned char*>(yData.ToPointer());
+        unsigned char* pUData = reinterpret_cast<unsigned char*>(uData.ToPointer());
+        unsigned char* pVData = reinterpret_cast<unsigned char*>(vData.ToPointer());
+        pDirect2DViewPort->OnFrame(pYData, pUData, pVData, yStride, uStride, vStride, width, height);
+    }
+}
+
 void RenderViewPort::OnRendered(RenderGraphics^ g, float clientWidth, float clientHeight)
 {
 
