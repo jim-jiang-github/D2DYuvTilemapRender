@@ -13,7 +13,6 @@ bool Direct2DHost::initialize(HWND hWnd, float bgR, float bgG, float bgB)
     GetClientRect(hWnd, &rc);
     mLastWidth = rc.right - rc.left;
     mLastHeight = rc.bottom - rc.top;
-    mLastHeight = mLastHeight * 2;
 
     mBackgroundColor = { bgR, bgG, bgB, 1 };
 

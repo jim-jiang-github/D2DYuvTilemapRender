@@ -19,8 +19,8 @@ namespace RenderDemo
         {
             new Thread(() =>
             {
-                int width = 1080;
-                int height = 720;
+                int width = 1920 / 5;
+                int height = 1080 / 5;
                 int yStride = width;
                 int uStride = width / 2;
                 int vStride = width / 2;
@@ -29,37 +29,18 @@ namespace RenderDemo
                 int uSize = uStride * height / 2;
                 int vSize = vStride * height / 2;
 
-                byte[] yData = new byte[ySize];
-                byte[] uData = new byte[uSize];
-                byte[] vData = new byte[vSize];
+                byte[] yuvData = new byte[ySize + uSize + vSize];
                 while (true)
                 {
-                    PushOnFrame(yData, uData, vData, yStride, uStride, vStride, width, height);
+                    _random.NextBytes(yuvData);
+                    IntPtr yIntPtr = Marshal.AllocHGlobal(yuvData.Length);
+                    Marshal.Copy(yuvData, 0, yIntPtr, yuvData.Length);
+                    OnFrame(yIntPtr, yIntPtr + ySize, yIntPtr + ySize + uSize, yStride, uStride, vStride, width, height);
+                    Marshal.FreeHGlobal(yIntPtr);
                     Thread.Sleep(33);
                 }
             })
             { IsBackground = true }.Start();
-        }
-
-        private void PushOnFrame(byte[] yData, byte[] uData, byte[] vData, int yStride, int uStride, int vStride, int width, int height)
-        {
-            _random.NextBytes(yData);
-            _random.NextBytes(uData);
-            _random.NextBytes(vData);
-
-            IntPtr yIntPtr = Marshal.AllocHGlobal(yData.Length);
-            IntPtr uIntPtr = Marshal.AllocHGlobal(uData.Length);
-            IntPtr vIntPtr = Marshal.AllocHGlobal(vData.Length);
-
-            Marshal.Copy(yData, 0, yIntPtr, yData.Length);
-            Marshal.Copy(uData, 0, uIntPtr, uData.Length);
-            Marshal.Copy(vData, 0, vIntPtr, vData.Length);
-
-            OnFrame(yIntPtr, uIntPtr, vIntPtr, yStride, uStride, vStride, width, height);
-
-            Marshal.FreeHGlobal(yIntPtr);
-            Marshal.FreeHGlobal(uIntPtr);
-            Marshal.FreeHGlobal(vIntPtr);
         }
 
         public override void OnRendered(RenderGraphics g, float clientWidth, float clientHeight)
@@ -74,21 +55,33 @@ namespace RenderDemo
         public Form1()
         {
             InitializeComponent();
+            WindowState = FormWindowState.Maximized;
+            FormBorderStyle = FormBorderStyle.None;
         }
 
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            RenderViewPortImpl renderViewPort = new RenderViewPortImpl();
-            renderViewPort.SetBounds(0, 0, 100, 100);
             _renderHost = RenderHost.Load(Handle, 0, 0, 0);
-            _renderHost.AddRenderViewPort(renderViewPort);
+            int count = 25;
+            RenderViewPortImpl[] renderViewPortImpls = new RenderViewPortImpl[count];
+            for (int i = 0; i < count; i++)
+            {
+                int w = 2400 / 5;
+                int h = 1600 / 5;
+                int x = i % 5 * w;
+                int y = i / 5 * h;
+                RenderViewPortImpl renderViewPort = new RenderViewPortImpl();
+                renderViewPort.SetBounds(x, y, w, h);
+                _renderHost.AddRenderViewPort(renderViewPort);
+                renderViewPortImpls[i] = renderViewPort;
+            }
             new Thread(() =>
             {
                 while (true)
                 {
                     _renderHost.RenderOnce();
-                    Thread.Sleep(33);
+                    Thread.Sleep(40);
                 }
             })
             { IsBackground = true }.Start();

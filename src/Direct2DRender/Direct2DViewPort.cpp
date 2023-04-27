@@ -1,11 +1,12 @@
 #include "pch.h"
 #include "Direct2DViewPort.h"
 #include "Direct2DHost.h"
-#ifdef _DEBUG
 #include <random>
-#endif
 
-Direct2DViewPort::Direct2DViewPort(RenderedCallback renderedCallback)
+Direct2DViewPort::Direct2DViewPort(RenderedCallback renderedCallback) :
+    buffer_(5),
+    readPos_(0),
+    writePos_(0)
 {
     mRenderedCallback = renderedCallback;
     std::random_device rd;
@@ -24,7 +25,39 @@ Direct2DViewPort::~Direct2DViewPort()
 
 void Direct2DViewPort::OnFrame(unsigned char* yData, unsigned char* uData, unsigned char* vData, int yStride, int uStride, int vStride, int width, int height)
 {
+    size_t nextWritePos = (writePos_.load(std::memory_order_acquire) + 1) % capacity_;
 
+    // If the buffer is full, discard the oldest frame
+    if (nextWritePos == readPos_.load(std::memory_order_acquire)) {
+        size_t nextReadPos = (readPos_.load(std::memory_order_relaxed) + 1) % capacity_;
+        readPos_.store(nextReadPos, std::memory_order_release);
+    }
+
+    size_t uDataOffset = width * height;
+    size_t vDataOffset = uDataOffset + (width * height) / 4;
+    size_t dataSize = vDataOffset + (width * height) / 4;
+
+    auto& frame = buffer_[writePos_.load(std::memory_order_relaxed)];
+
+    if (!frame.data || frame.dataSize != dataSize) {
+        frame.data.reset(new unsigned char[dataSize]);
+        frame.dataSize = dataSize;
+    }
+
+    frame.uDataOffset = uDataOffset;
+    frame.vDataOffset = vDataOffset;
+    frame.yStride = yStride;
+    frame.uStride = uStride;
+    frame.vStride = vStride;
+    frame.width = width;
+    frame.height = height;
+
+    // Copy yData, uData and vData separately
+    memcpy(frame.data.get(), yData, uDataOffset);
+    memcpy(frame.data.get() + uDataOffset, uData, (vDataOffset - uDataOffset));
+    memcpy(frame.data.get() + vDataOffset, vData, (dataSize - vDataOffset));
+
+    writePos_.store(nextWritePos, std::memory_order_release);
 }
 
 void Direct2DViewPort::SetBounds(float x, float y, float w, float h)
@@ -39,6 +72,25 @@ void Direct2DViewPort::SetBounds(float x, float y, float w, float h)
 void Direct2DViewPort::OnRender(ID2D1RenderTarget* renderTarget)
 {
     try {
+        Frame frame;
+        if (readPos_.load(std::memory_order_acquire) == writePos_.load(std::memory_order_acquire)) {
+            size_t lastReadPos = (readPos_.load(std::memory_order_relaxed) + capacity_ - 1) % capacity_;
+            if (buffer_[lastReadPos].data) {
+                frame = buffer_[lastReadPos];
+            }
+            else
+            {
+                return;
+            }
+        }
+        else
+        {
+            frame = buffer_[readPos_.load(std::memory_order_relaxed)];
+        }
+
+        size_t nextReadPos = (readPos_.load(std::memory_order_relaxed) + 1) % capacity_;
+        readPos_.store(nextReadPos, std::memory_order_release);
+
         // Fill the rectangle using the mColor variable
         auto brush = Direct2DHost::getInstance()->getBrush();
         if (!renderTarget || !brush)
