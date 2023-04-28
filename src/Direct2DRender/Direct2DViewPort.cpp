@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Direct2DViewPort.h"
 #include "Direct2DHost.h"
+#include "libyuv.h"
 #include <random>
 
 Direct2DViewPort::Direct2DViewPort(RenderedCallback renderedCallback) :
@@ -9,14 +10,6 @@ Direct2DViewPort::Direct2DViewPort(RenderedCallback renderedCallback) :
     writePos_(0)
 {
     mRenderedCallback = renderedCallback;
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, 255);
-
-    int r = dis(gen);
-    int g = dis(gen);
-    int b = dis(gen);
-    mColor = { r / (float)255, g / (float)255, b / (float)255, 255 };
 }
 
 Direct2DViewPort::~Direct2DViewPort()
@@ -71,6 +64,14 @@ void Direct2DViewPort::SetBounds(float x, float y, float w, float h)
 
 void Direct2DViewPort::OnRender(ID2D1RenderTarget* renderTarget)
 {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 255);
+
+    int r = dis(gen);
+    int g = dis(gen);
+    int b = dis(gen);
+    mColor = { r / (float)255, g / (float)255, b / (float)255, 255 };
     try {
         Frame frame;
         if (readPos_.load(std::memory_order_acquire) == writePos_.load(std::memory_order_acquire)) {
@@ -87,10 +88,16 @@ void Direct2DViewPort::OnRender(ID2D1RenderTarget* renderTarget)
         {
             frame = buffer_[readPos_.load(std::memory_order_relaxed)];
         }
-
         size_t nextReadPos = (readPos_.load(std::memory_order_relaxed) + 1) % capacity_;
         readPos_.store(nextReadPos, std::memory_order_release);
 
+        //uint8_t* dataY = (uint8_t*)frame.data.get();
+        //uint8_t* dataU = (uint8_t*)frame.data.get() + (frame.yStride * frame.height);
+        //uint8_t* dataV = dataU + (frame.uStride * (frame.height >> 1));
+        //size_t argb_size = frame.width * frame.height * 4;
+        //uint8_t* datargb = new uint8_t[argb_size];
+        //libyuv::I420ToARGB(dataY, frame.yStride, dataU, frame.uStride, dataV, frame.vStride, datargb, frame.width * 4, frame.width, frame.height);
+        //delete datargb;
         // Fill the rectangle using the mColor variable
         auto brush = Direct2DHost::getInstance()->getBrush();
         if (!renderTarget || !brush)

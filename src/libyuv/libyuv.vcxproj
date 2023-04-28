@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{aec66d70-436d-4c5e-a093-84709e13a510}</ProjectGuid>
-    <RootNamespace>Direct2DRender</RootNamespace>
+    <ProjectGuid>{66d3eedf-2467-499a-9270-c54519648f59}</ProjectGuid>
+    <RootNamespace>libyuv</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -96,12 +96,6 @@
       </SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Lib>
-      <AdditionalDependencies>d3d11.lib;d2d1.lib;dxgi.lib;</AdditionalDependencies>
-    </Lib>
-    <ProjectReference>
-      <LinkLibraryDependencies>false</LinkLibraryDependencies>
-    </ProjectReference>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -126,11 +120,11 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CRT_SECURE_NO_WARNINGS;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\3rd_party\libyuv\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\3rd_party\libyuv\include;..\3rd_party\libyuv\include\libyuv;..\3rd_party\libyuv\source</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -144,11 +138,11 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CRT_SECURE_NO_WARNINGS;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\3rd_party\libyuv\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\3rd_party\libyuv\include;..\3rd_party\libyuv\include\libyuv;..\3rd_party\libyuv\source</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -157,33 +151,92 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Lib>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Direct2DHost.h" />
-    <ClInclude Include="Direct2DViewPort.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="IDirect2DHost.h" />
-    <ClInclude Include="IDirect2DViewPort.h" />
-    <ClInclude Include="pch.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\basic_types.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\compare.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\compare_row.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\convert.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\convert_argb.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\convert_from.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\convert_from_argb.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\cpu_id.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\loongson_intrinsics.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\macros_msa.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\mjpeg_decoder.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\planar_functions.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\rotate.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\rotate_argb.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\rotate_row.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\row.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\scale.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\scale_argb.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\scale_rgb.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\scale_row.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\scale_uv.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\version.h" />
+    <ClInclude Include="..\3rd_party\libyuv\include\libyuv\video_common.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Direct2DHost.cpp" />
-    <ClCompile Include="Direct2DViewPort.cpp" />
-    <ClCompile Include="pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="..\3rd_party\libyuv\source\compare.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\compare_common.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\compare_gcc.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\compare_mmi.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\compare_msa.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\compare_neon.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\compare_neon64.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\compare_win.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\convert.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\convert_argb.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\convert_from.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\convert_from_argb.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\convert_jpeg.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\convert_to_argb.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\convert_to_i420.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\cpu_id.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\mjpeg_decoder.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\mjpeg_validate.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\planar_functions.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_any.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_argb.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_common.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_gcc.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_lsx.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_mmi.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_msa.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_neon.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_neon64.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\rotate_win.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_any.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_common.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_gcc.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_lasx.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_lsx.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_mmi.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_msa.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_neon.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_neon64.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_rvv.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\row_win.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_any.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_argb.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_common.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_gcc.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_lsx.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_mmi.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_msa.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_neon.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_neon64.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_rgb.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_uv.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\scale_win.cc" />
+    <ClCompile Include="..\3rd_party\libyuv\source\video_common.cc" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\libyuv\libyuv.vcxproj">
-      <Project>{66d3eedf-2467-499a-9270-c54519648f59}</Project>
-    </ProjectReference>
+    <None Include="..\3rd_party\libyuv\source\test.sh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

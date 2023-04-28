@@ -13,6 +13,13 @@
 #include <atomic>
 #include <mutex>
 
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <DirectXMath.h>
+#include <wrl/client.h>
+
+using Microsoft::WRL::ComPtr;
+
 class Direct2DHost :public IDirect2DHost
 {
 public:
@@ -45,5 +52,17 @@ private:
     D2D1_COLOR_F mBackgroundColor = { 0,0,0,0 };
     std::vector<std::shared_ptr<Direct2DViewPort>> mVecViewPort;
     std::mutex mRenderMutex;
+
+
+    HWND m_hWnd;
+    DirectX::XMVECTORF32 m_bgColor;
+
+    ComPtr<ID3D12Device> m_device;
+    ComPtr<IDXGISwapChain4> m_swapChain;
+    ComPtr<ID3D12CommandQueue> m_commandQueue;
+    ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
+    std::vector<ComPtr<ID3D12Resource>> m_renderTargets;
+    ComPtr<ID3D12CommandAllocator> m_commandAllocator;
+    ComPtr<ID3D12GraphicsCommandList> m_commandList;
 };
 

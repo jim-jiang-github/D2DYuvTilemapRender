@@ -81,7 +81,7 @@ namespace RenderDemo
                 while (true)
                 {
                     _renderHost.RenderOnce();
-                    Thread.Sleep(40);
+                    Thread.Sleep(33);
                 }
             })
             { IsBackground = true }.Start();
