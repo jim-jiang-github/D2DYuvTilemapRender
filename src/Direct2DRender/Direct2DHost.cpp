@@ -8,7 +8,6 @@ IDirect2DHost* IDirect2DHost::getInstance()
 }
 bool Direct2DHost::initialize(HWND hWnd, float bgR, float bgG, float bgB)
 {
-    std::lock_guard<std::mutex> guard(mRenderMutex);
     RECT rc;
     GetClientRect(hWnd, &rc);
     mLastWidth = rc.right - rc.left;
@@ -16,64 +15,23 @@ bool Direct2DHost::initialize(HWND hWnd, float bgR, float bgG, float bgB)
 
     mBackgroundColor = { bgR, bgG, bgB, 1 };
 
-    DXGI_SWAP_CHAIN_DESC swapDesc = {};
-    swapDesc.BufferCount = 2; //Double buffer
-    swapDesc.BufferDesc.Width = mLastWidth;
-    swapDesc.BufferDesc.Height = mLastHeight;
-    swapDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    swapDesc.BufferDesc.RefreshRate.Numerator = 60;
-    swapDesc.BufferDesc.RefreshRate.Denominator = 1;
-    swapDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapDesc.OutputWindow = hWnd;
-    swapDesc.SampleDesc.Count = 1;
-    swapDesc.SampleDesc.Quality = 0;
-    swapDesc.Windowed = TRUE; // Winodws mode
-    swapDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-
-    D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
-    // Create D3D11 device and swap chain
-    UINT createDeviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-#ifdef _DEBUG
-    createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
-    HRESULT hr = S_OK;
-    // on low-end pc, it may takes more than 10 seconds when system is busy
-    //DL_ENTER_THIS_SCOPE_I("D3D11CreateDeviceAndSwapChain");
-    D3D_DRIVER_TYPE driverTypes[] =
+    CComPtr<ID3D11Device> d3DDevice;
+    HRESULT hr = CreateDeviceAndSwapChain(hWnd, &d3DDevice, &pSwapChain);
+    if (FAILED(hr))
     {
-        D3D_DRIVER_TYPE_HARDWARE,
-        D3D_DRIVER_TYPE_WARP,
-    };
-    UINT countOfDriverTypes = ARRAYSIZE(driverTypes);
-
-    for (UINT driverTypeIndex = 0; driverTypeIndex < countOfDriverTypes; driverTypeIndex++) {
-        hr = D3D11CreateDeviceAndSwapChain(
-            nullptr,       // use default adapter
-            driverTypes[driverTypeIndex],
-            nullptr,       // no external software rasterizer
-            createDeviceFlags,
-            &featureLevel,       // use default set of feature levels
-            1,
-            D3D11_SDK_VERSION,
-            &swapDesc,
-            &pSwapChain,
-            &pD3dDevice,
-            nullptr,       // do not care about what feature level is chosen
-            nullptr        // do not retain D3D device context
-        );
-
-        if (SUCCEEDED(hr))
-            break;
-        else
-            LOG_W("hr:{:x}", hr);
+        LOG_E("CreateDeviceAndSwapChain hr:{}", hr);
+        return false;
     }
 
-    if (!pD3dDevice)
+    if (!d3DDevice)
     {
         LOG_E("pD3dDevice is null");
         return false;
     }
-    hr = pD3dDevice->QueryInterface(&pDxgiDevice);
+
+    CComPtr<IDXGIDevice1> dxgiDevice;
+    hr = d3DDevice->QueryInterface(&dxgiDevice);
+
     if (FAILED(hr))
     {
         LOG_E("pD3dDevice->QueryInterface hr:{}", hr);
@@ -87,41 +45,22 @@ bool Direct2DHost::initialize(HWND hWnd, float bgR, float bgG, float bgB)
         return false;
     }
 
-    hr = pFactory->CreateDevice(pDxgiDevice, &pD2dDevice);
-    if (FAILED(hr))
+    if (!updateOrCreateRenderTarget())
     {
-        LOG_E("pFactory->CreateDevice(pDxgiDevice, &pD2dDevice) hr:{}", hr);
-        return false;
-    }
-    // 获取D2D设备上下文
-    CComPtr<IDXGISurface> dxgiSurface;
-    hr = pSwapChain->GetBuffer(0, IID_PPV_ARGS(&dxgiSurface));
-    if (FAILED(hr))
-    {
-        return false;
-    }
-    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
-        D2D1_RENDER_TARGET_TYPE_DEFAULT,
-        D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_IGNORE),
-        0,
-        0,
-        D2D1_RENDER_TARGET_USAGE_NONE,
-        D2D1_FEATURE_LEVEL_DEFAULT);
-
-    hr = pFactory->CreateDxgiSurfaceRenderTarget(dxgiSurface, &props, &pD2dRenderTarget);
-    if (FAILED(hr))
-    {
+        LOG_E("pD2dRenderTarget create false");
         return false;
     }
 
     pD2dRenderTarget->CreateSolidColorBrush(mBackgroundColor, &pBrush);
+    pD2dRenderTarget->CreateBitmap(D2D1::SizeU(mLastWidth, mLastHeight),
+        D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)),
+        &pRenderBitmap);
 
     return true;
 }
 
 void Direct2DHost::resize(int width, int height)
 {
-    std::lock_guard<std::mutex> guard(mRenderMutex);
     if (!pSwapChain || !pD2dRenderTarget)
     {
         return;
@@ -131,41 +70,9 @@ void Direct2DHost::resize(int width, int height)
     {
         mLastWidth = width;
         mLastHeight = height;
-        // Release the old render target and create a new one
-        pD2dRenderTarget->Release();
-        HRESULT hr = pSwapChain->ResizeBuffers(
-            2,                // Double buffer
-            width,         // New width
-            height,        // New height
-            DXGI_FORMAT_R8G8B8A8_UNORM, // New format
-            0                 // No flags
-        );
-        if (FAILED(hr))
-        {
-            return;
-        }
-        CComPtr<IDXGISurface> dxgiSurface;
-        hr = pSwapChain->GetBuffer(0, IID_PPV_ARGS(&dxgiSurface));
-        if (FAILED(hr))
-        {
-            return;
-        }
-        D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
-            D2D1_RENDER_TARGET_TYPE_DEFAULT,
-            D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_IGNORE),
-            0,
-            0,
-            D2D1_RENDER_TARGET_USAGE_NONE,
-            D2D1_FEATURE_LEVEL_DEFAULT);
-        hr = pFactory->CreateDxgiSurfaceRenderTarget(dxgiSurface, &props, &pD2dRenderTarget);
-        if (FAILED(hr))
-        {
-            return;
-        }
-        pD2dRenderTarget->CreateSolidColorBrush(mBackgroundColor, &pBrush);
+        mIsNeedResize = true;
         renderOnce();
     }
-
 }
 
 void Direct2DHost::release()
@@ -174,31 +81,6 @@ void Direct2DHost::release()
     {
         pFactory->Release();
         pFactory = nullptr;
-    }
-    if (pD3dDevice)
-    {
-        pD3dDevice->Release();
-        pD3dDevice = nullptr;
-    }
-    if (pD3dDeviceContext)
-    {
-        pD3dDeviceContext->Release();
-        pD3dDeviceContext = nullptr;
-    }
-    if (pD2dDevice)
-    {
-        pD2dDevice->Release();
-        pD2dDevice = nullptr;
-    }
-    if (pD2dDeviceContext)
-    {
-        pD2dDeviceContext->Release();
-        pD2dDeviceContext = nullptr;
-    }
-    if (pDxgiDevice)
-    {
-        pDxgiDevice->Release();
-        pDxgiDevice = nullptr;
     }
     if (pSwapChain)
     {
@@ -250,26 +132,137 @@ ID2D1SolidColorBrush* Direct2DHost::getBrush()
     return pBrush;
 }
 
+DXGI_SWAP_CHAIN_DESC Direct2DHost::createSwapChain(HWND hWnd)
+{
+    DXGI_SWAP_CHAIN_DESC swapDesc = {};
+    swapDesc.BufferCount = 2; //Double buffer
+    swapDesc.BufferDesc.Width = mLastWidth;
+    swapDesc.BufferDesc.Height = mLastHeight;
+    swapDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapDesc.BufferDesc.RefreshRate.Numerator = 60;
+    swapDesc.BufferDesc.RefreshRate.Denominator = 1;
+    swapDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapDesc.OutputWindow = hWnd;
+    swapDesc.SampleDesc.Count = 1;
+    swapDesc.SampleDesc.Quality = 0;
+    swapDesc.Windowed = TRUE; // Winodws mode
+    swapDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+    return swapDesc;
+}
+
+HRESULT Direct2DHost::CreateDeviceAndSwapChain(HWND hWnd, ID3D11Device** d3DDevice, IDXGISwapChain** swapChain)
+{
+    DXGI_SWAP_CHAIN_DESC swapDesc = createSwapChain(hWnd);
+
+    D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
+    // Create D3D11 device and swap chain
+    UINT createDeviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+#ifdef _DEBUG
+    createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+    HRESULT hr = S_OK;
+    // on low-end pc, it may takes more than 10 seconds when system is busy
+    //DL_ENTER_THIS_SCOPE_I("D3D11CreateDeviceAndSwapChain");
+    D3D_DRIVER_TYPE driverTypes[] =
+    {
+        D3D_DRIVER_TYPE_HARDWARE,
+        D3D_DRIVER_TYPE_WARP,
+    };
+    UINT countOfDriverTypes = ARRAYSIZE(driverTypes);
+
+    for (UINT driverTypeIndex = 0; driverTypeIndex < countOfDriverTypes; driverTypeIndex++) {
+        hr = D3D11CreateDeviceAndSwapChain(
+            nullptr,       // use default adapter
+            driverTypes[driverTypeIndex],
+            nullptr,       // no external software rasterizer
+            createDeviceFlags,
+            &featureLevel,       // use default set of feature levels
+            1,
+            D3D11_SDK_VERSION,
+            &swapDesc,
+            *&swapChain,
+            *&d3DDevice,
+            nullptr,       // do not care about what feature level is chosen
+            nullptr        // do not retain D3D device context
+        );
+
+        if (SUCCEEDED(hr))
+            break;
+        else
+            LOG_W("hr:{:x}", hr);
+    }
+    return hr;
+}
+
 void Direct2DHost::onRender()
 {
-    std::lock_guard<std::mutex> guard(mRenderMutex);
+    if (mIsNeedResize)
+    {
+        mIsNeedResize = false;
+        resizeSwapChainBuffers();
+    }
     if (!pD2dRenderTarget)
     {
         return;
     }
-    // 开始绘制
     pD2dRenderTarget->BeginDraw();
-
-    // 清空背景色
     pD2dRenderTarget->Clear(mBackgroundColor);
     for (auto iter : mVecViewPort)
     {
         iter->OnRender(pD2dRenderTarget);
     }
-
-    // 结束绘制
     pD2dRenderTarget->EndDraw();
-
-    // Present the back buffer to the screen
     pSwapChain->Present(1, 0);
+}
+
+void Direct2DHost::resizeSwapChainBuffers()
+{
+    if (!pSwapChain)
+    {
+        return;
+    }
+    HRESULT hr = pSwapChain->ResizeBuffers(
+        2,                // Double buffer
+        mLastWidth,         // New width
+        mLastHeight,        // New height
+        DXGI_FORMAT_R8G8B8A8_UNORM, // New format
+        0                 // No flags
+    );
+    if (FAILED(hr))
+    {
+        return;
+    }
+    updateOrCreateRenderTarget();
+}
+
+bool Direct2DHost::updateOrCreateRenderTarget()
+{
+    if (!pFactory)
+    {
+        return false;
+    }
+    if (pD2dRenderTarget)
+    {
+        // Release the old render target and create a new one
+        pD2dRenderTarget->Release();
+    }
+    CComPtr<IDXGISurface> dxgiSurface;
+    HRESULT hr = pSwapChain->GetBuffer(0, IID_PPV_ARGS(&dxgiSurface));
+    if (FAILED(hr))
+    {
+        return false;
+    }
+    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+        D2D1_RENDER_TARGET_TYPE_DEFAULT,
+        D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_IGNORE),
+        0,
+        0,
+        D2D1_RENDER_TARGET_USAGE_NONE,
+        D2D1_FEATURE_LEVEL_DEFAULT);
+    hr = pFactory->CreateDxgiSurfaceRenderTarget(dxgiSurface, &props, &pD2dRenderTarget);
+    if (FAILED(hr))
+    {
+        return false;
+    }
+    return true;
 }

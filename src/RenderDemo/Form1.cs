@@ -56,7 +56,7 @@ namespace RenderDemo
         {
             InitializeComponent();
             WindowState = FormWindowState.Maximized;
-            FormBorderStyle = FormBorderStyle.None;
+            //FormBorderStyle = FormBorderStyle.None;
         }
 
         protected override void OnShown(EventArgs e)
@@ -85,6 +85,16 @@ namespace RenderDemo
                 }
             })
             { IsBackground = true }.Start();
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (_renderHost == null)
+            {
+                return;
+            }
+            _renderHost.Resize(ClientSize.Width, ClientSize.Height);
         }
 
         protected override void OnClosing(CancelEventArgs e)

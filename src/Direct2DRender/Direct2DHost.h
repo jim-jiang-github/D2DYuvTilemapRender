@@ -13,13 +13,6 @@
 #include <atomic>
 #include <mutex>
 
-#include <d3d12.h>
-#include <dxgi1_6.h>
-#include <DirectXMath.h>
-#include <wrl/client.h>
-
-using Microsoft::WRL::ComPtr;
-
 class Direct2DHost :public IDirect2DHost
 {
 public:
@@ -34,35 +27,23 @@ public:
     virtual ID2D1RenderTarget* getRenderTarget() override;
     virtual ID2D1SolidColorBrush* getBrush() override;
 private:
+    DXGI_SWAP_CHAIN_DESC createSwapChain(HWND hWnd);
+    HRESULT CreateDeviceAndSwapChain(HWND hWnd, ID3D11Device** d3DDevice, IDXGISwapChain** swapChain);
     void onRender();
+    void resizeSwapChainBuffers();
+    bool updateOrCreateRenderTarget();
 private:
     ID2D1Factory1* pFactory = nullptr;
-
-    ID3D11Device* pD3dDevice = nullptr;
-    ID3D11DeviceContext* pD3dDeviceContext = nullptr;
-    ID2D1Device* pD2dDevice = nullptr;
-    ID2D1DeviceContext* pD2dDeviceContext = nullptr;
-    IDXGIDevice1* pDxgiDevice = nullptr;
     IDXGISwapChain* pSwapChain = nullptr;
     ID2D1RenderTarget* pD2dRenderTarget = nullptr;
     ID2D1SolidColorBrush* pBrush = nullptr;
 
     int mLastWidth = 0;
     int mLastHeight = 0;
-    D2D1_COLOR_F mBackgroundColor = { 0,0,0,0 };
+    bool mIsNeedResize = false;
+    ID2D1Bitmap* pRenderBitmap = nullptr;
+
+    D2D1_COLOR_F mBackgroundColor = { 0, 0, 0, 0 };
     std::vector<std::shared_ptr<Direct2DViewPort>> mVecViewPort;
-    std::mutex mRenderMutex;
-
-
-    HWND m_hWnd;
-    DirectX::XMVECTORF32 m_bgColor;
-
-    ComPtr<ID3D12Device> m_device;
-    ComPtr<IDXGISwapChain4> m_swapChain;
-    ComPtr<ID3D12CommandQueue> m_commandQueue;
-    ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-    std::vector<ComPtr<ID3D12Resource>> m_renderTargets;
-    ComPtr<ID3D12CommandAllocator> m_commandAllocator;
-    ComPtr<ID3D12GraphicsCommandList> m_commandList;
 };
 

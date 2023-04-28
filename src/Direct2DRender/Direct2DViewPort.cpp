@@ -91,13 +91,13 @@ void Direct2DViewPort::OnRender(ID2D1RenderTarget* renderTarget)
         size_t nextReadPos = (readPos_.load(std::memory_order_relaxed) + 1) % capacity_;
         readPos_.store(nextReadPos, std::memory_order_release);
 
-        //uint8_t* dataY = (uint8_t*)frame.data.get();
-        //uint8_t* dataU = (uint8_t*)frame.data.get() + (frame.yStride * frame.height);
-        //uint8_t* dataV = dataU + (frame.uStride * (frame.height >> 1));
-        //size_t argb_size = frame.width * frame.height * 4;
-        //uint8_t* datargb = new uint8_t[argb_size];
-        //libyuv::I420ToARGB(dataY, frame.yStride, dataU, frame.uStride, dataV, frame.vStride, datargb, frame.width * 4, frame.width, frame.height);
-        //delete datargb;
+        uint8_t* dataY = (uint8_t*)frame.data.get();
+        uint8_t* dataU = (uint8_t*)frame.data.get() + (frame.yStride * frame.height);
+        uint8_t* dataV = dataU + (frame.uStride * (frame.height >> 1));
+        size_t argb_size = frame.width * frame.height * 4;
+        uint8_t* datargb = new uint8_t[argb_size];
+        libyuv::I420ToARGB(dataY, frame.yStride, dataU, frame.uStride, dataV, frame.vStride, datargb, frame.width * 4, frame.width, frame.height);
+        delete[] datargb;
         // Fill the rectangle using the mColor variable
         auto brush = Direct2DHost::getInstance()->getBrush();
         if (!renderTarget || !brush)
