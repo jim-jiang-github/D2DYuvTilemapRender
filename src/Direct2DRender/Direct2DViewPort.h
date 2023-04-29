@@ -14,7 +14,6 @@ public:
     ~Direct2DViewPort();
     void onYuvFrame(unsigned char* yData, unsigned char* uData, unsigned char* vData, int yStride, int uStride, int vStride, int width, int height);
     void onRender(ID2D1Bitmap* renderBitmap, ID2D1RenderTarget* renderTarget);
-    void registerRenderedCallback(void (*onRenderedCallback)(ID2D1RenderTarget*));
     float getX();
     float getY();
     float getWidth();
@@ -32,10 +31,9 @@ private:
         int width;
         int height;
     };
-    bool tryGetNextFrame(YuvFrame& frame);
+    bool tryGetNextFrame(YuvFrame& frame, bool& isFrameChanged);
     void useYuvFrameToUpdateFrameRgb(YuvFrame& frame);
 private:
-    void (*pOnRenderedCallback)(ID2D1RenderTarget*);
     float mX = 0;
     float mY = 0;
     float mWidth = 0;

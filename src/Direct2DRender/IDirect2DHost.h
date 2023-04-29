@@ -13,7 +13,8 @@ public:
     virtual void addDirect2DViewPort(std::shared_ptr<Direct2DViewPort> viewPort) = 0;
     virtual void removeDirect2DViewPort(std::shared_ptr<Direct2DViewPort> viewPort) = 0;
     virtual void renderOnce() = 0;
-    virtual ID2D1RenderTarget* getRenderTarget() = 0;
+    virtual ID2D1RenderTarget* getWicBitmapRenderTarget() = 0;
+    virtual ID2D1RenderTarget* getDxgiSurfaceRenderTarget() = 0;
     virtual ID2D1SolidColorBrush* getBrush() = 0;
 };
 

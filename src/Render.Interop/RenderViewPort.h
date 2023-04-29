@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "RenderGraphics.h"
 #include "Direct2DViewPort.h"
 

@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "RenderViewPort.h"
 
 RenderViewPort::RenderViewPort()
@@ -48,7 +47,9 @@ void RenderViewPort::OnRendered(RenderGraphics^ g, float clientWidth, float clie
 
 void RenderViewPort::OnRenderedInternal()
 {
+    pRenderGraphics->SuspendRender();
     OnRendered(pRenderGraphics, mW, mH);
+    pRenderGraphics->ResumeRender();
 }
 
 Direct2DViewPort* RenderViewPort::getDirect2DViewPort()

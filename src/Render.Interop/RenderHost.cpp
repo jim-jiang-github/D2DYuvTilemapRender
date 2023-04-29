@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "RenderHost.h"
 
 RenderHost::RenderHost(IDirect2DHost* direct2DHost)

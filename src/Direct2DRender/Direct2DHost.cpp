@@ -1,5 +1,6 @@
 #include "logging.h"
 #include "Direct2DHost.h"
+#include <wincodec.h>
 
 IDirect2DHost* IDirect2DHost::getInstance()
 {
@@ -38,33 +39,49 @@ bool Direct2DHost::initialize(HWND hWnd, float bgR, float bgG, float bgB)
         return false;
     }
 
-    hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, &pFactory);
+    hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, &pD2dFactory);
     if (FAILED(hr))
     {
         LOG_E("D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, &pFactory) hr:{}", hr);
         return false;
     }
 
-    if (!updateOrCreateRenderTarget())
+    hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pWICImagingFactory));
+    if (FAILED(hr))
+    {
+        LOG_E("CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pWICImagingFactory) hr:{}", hr);
+        return false;
+    }
+
+    if (!updateOrCreateDxgiSurfaceRenderTarget())
     {
         LOG_E("pD2dRenderTarget create false");
         return false;
     }
-
     if (!updateOrCreateYuvRenderBitmap())
     {
-        LOG_E("pYuvRenderBitmap create false");
+        LOG_E("pRenderBitmap create false");
+        return false;
+    }
+    if (!updateOrCreateMaskRenderBitmap())
+    {
+        LOG_E("updateOrCreateMaskRenderBitmap false");
+        return false;
+    }
+    if (!updateOrCreateWicBitmapRenderTarget())
+    {
+        LOG_E("updateOrCreateWicBitmapRenderTarget false");
         return false;
     }
 
-    pD2dRenderTarget->CreateSolidColorBrush(mBackgroundColor, &pBrush);
+    pDxgiSurfaceRenderTarget->CreateSolidColorBrush(mBackgroundColor, &pBrush);
 
     return true;
 }
 
 void Direct2DHost::resize(int width, int height)
 {
-    if (!pSwapChain || !pD2dRenderTarget)
+    if (!pSwapChain || !pDxgiSurfaceRenderTarget)
     {
         return;
     }
@@ -80,25 +97,45 @@ void Direct2DHost::resize(int width, int height)
 
 void Direct2DHost::release()
 {
-    if (pFactory)
+    if (pD2dFactory)
     {
-        pFactory->Release();
-        pFactory = nullptr;
+        pD2dFactory->Release();
+        pD2dFactory = nullptr;
+    }
+    if (pWICImagingFactory)
+    {
+        pWICImagingFactory->Release();
+        pWICImagingFactory = nullptr;
     }
     if (pSwapChain)
     {
         pSwapChain->Release();
         pSwapChain = nullptr;
     }
-    if (pD2dRenderTarget)
+    if (pWicBitmapRenderTarget)
     {
-        pD2dRenderTarget->Release();
-        pD2dRenderTarget = nullptr;
+        pWicBitmapRenderTarget->Release();
+        pWicBitmapRenderTarget = nullptr;
+    }
+    if (pDxgiSurfaceRenderTarget)
+    {
+        pDxgiSurfaceRenderTarget->Release();
+        pDxgiSurfaceRenderTarget = nullptr;
     }
     if (pBrush)
     {
         pBrush->Release();
         pBrush = nullptr;
+    }
+    if (pYuvRenderBitmap != nullptr)
+    {
+        pYuvRenderBitmap->Release();
+        pYuvRenderBitmap = nullptr;
+    }
+    if (pMaskRenderBitmap != nullptr)
+    {
+        pMaskRenderBitmap->Release();
+        pMaskRenderBitmap = nullptr;
     }
 }
 
@@ -125,16 +162,43 @@ void Direct2DHost::renderOnce()
     if (mIsNeedResize)
     {
         mIsNeedResize = false;
-        resizeSwapChainBuffers();
-        updateOrCreateRenderTarget();
-        updateOrCreateYuvRenderBitmap();
+        if (!resizeSwapChainBuffers())
+        {
+            LOG_E("resizeSwapChainBuffers false");
+            return;
+        }
+        if (!updateOrCreateDxgiSurfaceRenderTarget())
+        {
+            LOG_E("updateOrCreateRenderTarget false");
+            return;
+        }
+        if (!updateOrCreateYuvRenderBitmap())
+        {
+            LOG_E("updateOrCreateRenderBitmap false");
+            return;
+        }
+        if (!updateOrCreateMaskRenderBitmap())
+        {
+            LOG_E("updateOrCreateRenderBitmap false");
+            return;
+        }
+        if (!updateOrCreateWicBitmapRenderTarget())
+        {
+            LOG_E("updateOrCreateRenderTarget false");
+            return;
+        }
     }
     onRender();
 }
 
-ID2D1RenderTarget* Direct2DHost::getRenderTarget()
+ID2D1RenderTarget* Direct2DHost::getWicBitmapRenderTarget()
 {
-    return pD2dRenderTarget;
+    return pWicBitmapRenderTarget;
+}
+
+ID2D1RenderTarget* Direct2DHost::getDxgiSurfaceRenderTarget()
+{
+    return pDxgiSurfaceRenderTarget;
 }
 
 ID2D1SolidColorBrush* Direct2DHost::getBrush()
@@ -225,16 +289,16 @@ bool Direct2DHost::resizeSwapChainBuffers()
     return true;
 }
 
-bool Direct2DHost::updateOrCreateRenderTarget()
+bool Direct2DHost::updateOrCreateDxgiSurfaceRenderTarget()
 {
-    if (!pFactory)
+    if (!pD2dFactory)
     {
         return false;
     }
-    if (pD2dRenderTarget)
+    if (pDxgiSurfaceRenderTarget)
     {
         // Release the old render target and create a new one
-        pD2dRenderTarget->Release();
+        pDxgiSurfaceRenderTarget->Release();
     }
     CComPtr<IDXGISurface> dxgiSurface;
     HRESULT hr = pSwapChain->GetBuffer(0, IID_PPV_ARGS(&dxgiSurface));
@@ -249,7 +313,7 @@ bool Direct2DHost::updateOrCreateRenderTarget()
         0,
         D2D1_RENDER_TARGET_USAGE_NONE,
         D2D1_FEATURE_LEVEL_DEFAULT);
-    hr = pFactory->CreateDxgiSurfaceRenderTarget(dxgiSurface, &props, &pD2dRenderTarget);
+    hr = pD2dFactory->CreateDxgiSurfaceRenderTarget(dxgiSurface, &props, &pDxgiSurfaceRenderTarget);
     if (FAILED(hr))
     {
         return false;
@@ -264,7 +328,7 @@ bool Direct2DHost::updateOrCreateYuvRenderBitmap()
         pYuvRenderBitmap->Release();
         pYuvRenderBitmap = nullptr;
     }
-    HRESULT hr = pD2dRenderTarget->CreateBitmap(D2D1::SizeU(mLastWidth, mLastHeight),
+    HRESULT hr = pDxgiSurfaceRenderTarget->CreateBitmap(D2D1::SizeU(mLastWidth, mLastHeight),
         D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)),
         &pYuvRenderBitmap);
     if (FAILED(hr))
@@ -274,29 +338,66 @@ bool Direct2DHost::updateOrCreateYuvRenderBitmap()
     return true;
 }
 
+bool Direct2DHost::updateOrCreateWicBitmapRenderTarget()
+{
+    if (pWicBitmapRenderTarget)
+    {
+        // Release the old render target and create a new one
+        pWicBitmapRenderTarget->Release();
+    }
+    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties();
+    props.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED);
+    HRESULT hr = pD2dFactory->CreateWicBitmapRenderTarget(pMaskRenderBitmap, props, &pWicBitmapRenderTarget);
+    if (FAILED(hr))
+    {
+        return false;
+    }
+    return true;
+}
+
+bool Direct2DHost::updateOrCreateMaskRenderBitmap()
+{
+    if (!pWICImagingFactory)
+    {
+        return false;
+    }
+    if (pMaskRenderBitmap != nullptr)
+    {
+        pMaskRenderBitmap->Release();
+        pMaskRenderBitmap = nullptr;
+    }
+    HRESULT hr = pWICImagingFactory->CreateBitmap(mLastWidth, mLastHeight, GUID_WICPixelFormat32bppPBGRA, WICBitmapCacheOnDemand, &pMaskRenderBitmap);
+
+    if (FAILED(hr))
+    {
+        return false;
+    }
+    return true;
+}
+
 void Direct2DHost::onRender()
 {
-    if (!pD2dRenderTarget)
+    if (!pDxgiSurfaceRenderTarget)
     {
         return;
     }
-    pD2dRenderTarget->BeginDraw();
-    pD2dRenderTarget->Clear(mBackgroundColor);
+    pDxgiSurfaceRenderTarget->BeginDraw();
+    pDxgiSurfaceRenderTarget->Clear(mBackgroundColor);
 
     for (auto iter : mVecViewPort)
     {
         //offset render position.
         D2D1_MATRIX_3X2_F originalMatrix;
-        pD2dRenderTarget->GetTransform(&originalMatrix);
+        pDxgiSurfaceRenderTarget->GetTransform(&originalMatrix);
         auto matrix = D2D1::Matrix3x2F::Translation(iter->getX(), iter->getY());
-        pD2dRenderTarget->SetTransform(matrix);
+        pDxgiSurfaceRenderTarget->SetTransform(matrix);
 
-        iter->onRender(pYuvRenderBitmap, pD2dRenderTarget);
+        iter->onRender(pYuvRenderBitmap, pDxgiSurfaceRenderTarget);
 
-        pD2dRenderTarget->SetTransform(originalMatrix);
+        pDxgiSurfaceRenderTarget->SetTransform(originalMatrix);
     }
-    //pD2dRenderTarget->DrawBitmap(pYuvRenderBitmap);
+    //pDxgiSurfaceRenderTarget->DrawBitmap(pYuvRenderBitmap);
 
-    pD2dRenderTarget->EndDraw();
+    pDxgiSurfaceRenderTarget->EndDraw();
     pSwapChain->Present(1, 0);
 }

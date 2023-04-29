@@ -54,42 +54,39 @@ void Direct2DViewPort::onYuvFrame(unsigned char* yData, unsigned char* uData, un
 
 void Direct2DViewPort::onRender(ID2D1Bitmap* renderBitmap, ID2D1RenderTarget* renderTarget)
 {
+    if (!renderTarget)
+    {
+        return;
+    }
     YuvFrame frame;
-    if (!tryGetNextFrame(frame)) {
+    bool isFrameChanged = false;
+    if (!tryGetNextFrame(frame, isFrameChanged)) {
         return;
     }
-    if (mLastFrameWidth != frame.width || mLastFrameHeight != frame.height)
+    if (isFrameChanged)
     {
-        mLastFrameWidth = frame.width;
-        mLastFrameHeight = frame.height;
-        size_t rgbSize = mLastFrameWidth * mLastFrameHeight * 3;
-        pRgbFrame = new uint8_t[rgbSize];
+        if (mLastFrameWidth != frame.width || mLastFrameHeight != frame.height)
+        {
+            mLastFrameWidth = frame.width;
+            mLastFrameHeight = frame.height;
+            size_t rgbSize = mLastFrameWidth * mLastFrameHeight * 4;
+            pRgbFrame = new uint8_t[rgbSize];
+        }
+
+        useYuvFrameToUpdateFrameRgb(frame);
+
+        D2D1_RECT_U rcDest = D2D1::RectU(0, 0, mLastFrameWidth, mLastFrameHeight);
+        auto hr = renderBitmap->CopyFromMemory(&rcDest, pRgbFrame, mLastFrameWidth * 4);
     }
 
-    useYuvFrameToUpdateFrameRgb(frame);
-
-    D2D1_RECT_U rcDest = D2D1::RectU(mX, mY, mX + mWidth, mY + mHeight);
-    auto hr = renderBitmap->CopyFromMemory(&rcDest, pRgbFrame, frame.width);
-    // Fill the rectangle using the mColor variable
-    auto brush = Direct2DHost::getInstance()->getBrush();
-    if (!renderTarget || !brush)
-    {
-        return;
-    }
-
-     D2D1_RECT_F srcRect = D2D1::RectF(0, 0, 800, 800);
-     D2D1_RECT_F destRect = D2D1::RectF(0, 0, 800, 800);
-     renderTarget->DrawBitmap(renderBitmap, destRect, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, srcRect);
-     // Call the callback function
+    D2D1_RECT_F srcRect = D2D1::RectF(0, 0, mLastFrameWidth, mLastFrameHeight);
+    D2D1_RECT_F destRect = D2D1::RectF(0, 0, mWidth, mHeight);
+    renderTarget->DrawBitmap(renderBitmap, destRect, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, srcRect);
+    // Call the callback function
     if (mRenderedCallback)
     {
-        mRenderedCallback();
+        //mRenderedCallback();
     }
-}
-
-void Direct2DViewPort::registerRenderedCallback(void (*onRenderedCallback)(ID2D1RenderTarget*))
-{
-    pOnRenderedCallback = onRenderedCallback;
 }
 
 float Direct2DViewPort::getX()
@@ -121,12 +118,13 @@ void Direct2DViewPort::setBounds(float x, float y, float w, float h)
     mHeight = h;
 }
 
-bool Direct2DViewPort::tryGetNextFrame(YuvFrame& frame)
+bool Direct2DViewPort::tryGetNextFrame(YuvFrame& frame, bool& isFrameChanged)
 {
     if (mReadPos.load(std::memory_order_acquire) == mWritePos.load(std::memory_order_acquire)) {
         size_t lastReadPos = (mReadPos.load(std::memory_order_relaxed) + mCapacity - 1) % mCapacity;
         if (mBuffer[lastReadPos].data) {
             frame = mBuffer[lastReadPos];
+            isFrameChanged = false;
         }
         else
         {
@@ -136,9 +134,10 @@ bool Direct2DViewPort::tryGetNextFrame(YuvFrame& frame)
     else
     {
         frame = mBuffer[mReadPos.load(std::memory_order_relaxed)];
+        isFrameChanged = true;
+        size_t nextReadPos = (mReadPos.load(std::memory_order_relaxed) + 1) % mCapacity;
+        mReadPos.store(nextReadPos, std::memory_order_release);
     }
-    size_t nextReadPos = (mReadPos.load(std::memory_order_relaxed) + 1) % mCapacity;
-    mReadPos.store(nextReadPos, std::memory_order_release);
     return true;
 }
 
@@ -147,14 +146,14 @@ void Direct2DViewPort::useYuvFrameToUpdateFrameRgb(YuvFrame& frame)
     uint8_t* dataY = (uint8_t*)frame.data.get();
     uint8_t* dataU = (uint8_t*)frame.data.get() + (frame.yStride * frame.height);
     uint8_t* dataV = dataU + (frame.uStride * (frame.height >> 1));
-    libyuv::I420ToRGB24(dataY,
+    libyuv::I420ToARGB(dataY,
         frame.yStride,
         dataU,
         frame.uStride,
         dataV,
         frame.vStride,
         pRgbFrame,
-        frame.width * 3,
+        frame.width * 4,
         frame.width,
         frame.height);
 }
