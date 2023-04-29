@@ -75,11 +75,11 @@ void Direct2DViewPort::onRender(ID2D1Bitmap* renderBitmap, ID2D1RenderTarget* re
 
         useYuvFrameToUpdateFrameRgb(frame);
 
-        D2D1_RECT_U rcDest = D2D1::RectU(0, 0, mLastFrameWidth, mLastFrameHeight);
+        D2D1_RECT_U rcDest = D2D1::RectU(mX, mY, mX + mLastFrameWidth, mY + mLastFrameHeight);
         auto hr = renderBitmap->CopyFromMemory(&rcDest, pRgbFrame, mLastFrameWidth * 4);
     }
 
-    D2D1_RECT_F srcRect = D2D1::RectF(0, 0, mLastFrameWidth, mLastFrameHeight);
+    D2D1_RECT_F srcRect = D2D1::RectF(mX, mY, mX + mLastFrameWidth, mY + mLastFrameHeight);
     D2D1_RECT_F destRect = D2D1::RectF(0, 0, mWidth, mHeight);
     renderTarget->DrawBitmap(renderBitmap, destRect, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, srcRect);
     // Call the callback function
