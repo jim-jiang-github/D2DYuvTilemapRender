@@ -3,14 +3,11 @@
   <ItemGroup>
     <ClInclude Include="Direct2DHost.h" />
     <ClInclude Include="Direct2DViewPort.h" />
-    <ClInclude Include="framework.h" />
     <ClInclude Include="IDirect2DHost.h" />
-    <ClInclude Include="IDirect2DViewPort.h" />
-    <ClInclude Include="pch.h" />
+    <ClInclude Include="logging.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Direct2DHost.cpp" />
     <ClCompile Include="Direct2DViewPort.cpp" />
-    <ClCompile Include="pch.cpp" />
   </ItemGroup>
 </Project>

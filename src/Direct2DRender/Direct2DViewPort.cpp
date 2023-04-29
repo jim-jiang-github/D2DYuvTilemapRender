@@ -1,13 +1,12 @@
-#include "pch.h"
+#include "logging.h"
 #include "Direct2DViewPort.h"
 #include "Direct2DHost.h"
 #include "libyuv.h"
-#include <random>
 
 Direct2DViewPort::Direct2DViewPort(RenderedCallback renderedCallback) :
-    buffer_(5),
-    readPos_(0),
-    writePos_(0)
+    mBuffer(5),
+    mReadPos(0),
+    mWritePos(0)
 {
     mRenderedCallback = renderedCallback;
 }
@@ -16,21 +15,21 @@ Direct2DViewPort::~Direct2DViewPort()
 {
 }
 
-void Direct2DViewPort::OnFrame(unsigned char* yData, unsigned char* uData, unsigned char* vData, int yStride, int uStride, int vStride, int width, int height)
+void Direct2DViewPort::onYuvFrame(unsigned char* yData, unsigned char* uData, unsigned char* vData, int yStride, int uStride, int vStride, int width, int height)
 {
-    size_t nextWritePos = (writePos_.load(std::memory_order_acquire) + 1) % capacity_;
+    size_t nextWritePos = (mWritePos.load(std::memory_order_acquire) + 1) % mCapacity;
 
     // If the buffer is full, discard the oldest frame
-    if (nextWritePos == readPos_.load(std::memory_order_acquire)) {
-        size_t nextReadPos = (readPos_.load(std::memory_order_relaxed) + 1) % capacity_;
-        readPos_.store(nextReadPos, std::memory_order_release);
+    if (nextWritePos == mReadPos.load(std::memory_order_acquire)) {
+        size_t nextReadPos = (mReadPos.load(std::memory_order_relaxed) + 1) % mCapacity;
+        mReadPos.store(nextReadPos, std::memory_order_release);
     }
 
     size_t uDataOffset = width * height;
     size_t vDataOffset = uDataOffset + (width * height) / 4;
     size_t dataSize = vDataOffset + (width * height) / 4;
 
-    auto& frame = buffer_[writePos_.load(std::memory_order_relaxed)];
+    auto& frame = mBuffer[mWritePos.load(std::memory_order_relaxed)];
 
     if (!frame.data || frame.dataSize != dataSize) {
         frame.data.reset(new unsigned char[dataSize]);
@@ -50,84 +49,112 @@ void Direct2DViewPort::OnFrame(unsigned char* yData, unsigned char* uData, unsig
     memcpy(frame.data.get() + uDataOffset, uData, (vDataOffset - uDataOffset));
     memcpy(frame.data.get() + vDataOffset, vData, (dataSize - vDataOffset));
 
-    writePos_.store(nextWritePos, std::memory_order_release);
+    mWritePos.store(nextWritePos, std::memory_order_release);
 }
 
-void Direct2DViewPort::SetBounds(float x, float y, float w, float h)
+void Direct2DViewPort::onRender(ID2D1Bitmap* renderBitmap, ID2D1RenderTarget* renderTarget)
+{
+    YuvFrame frame;
+    if (!tryGetNextFrame(frame)) {
+        return;
+    }
+    if (mLastFrameWidth != frame.width || mLastFrameHeight != frame.height)
+    {
+        mLastFrameWidth = frame.width;
+        mLastFrameHeight = frame.height;
+        size_t rgbSize = mLastFrameWidth * mLastFrameHeight * 3;
+        pRgbFrame = new uint8_t[rgbSize];
+    }
+
+    useYuvFrameToUpdateFrameRgb(frame);
+
+    D2D1_RECT_U rcDest = D2D1::RectU(mX, mY, mX + mWidth, mY + mHeight);
+    auto hr = renderBitmap->CopyFromMemory(&rcDest, pRgbFrame, frame.width);
+    // Fill the rectangle using the mColor variable
+    auto brush = Direct2DHost::getInstance()->getBrush();
+    if (!renderTarget || !brush)
+    {
+        return;
+    }
+
+     D2D1_RECT_F srcRect = D2D1::RectF(0, 0, 800, 800);
+     D2D1_RECT_F destRect = D2D1::RectF(0, 0, 800, 800);
+     renderTarget->DrawBitmap(renderBitmap, destRect, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, srcRect);
+     // Call the callback function
+    if (mRenderedCallback)
+    {
+        mRenderedCallback();
+    }
+}
+
+void Direct2DViewPort::registerRenderedCallback(void (*onRenderedCallback)(ID2D1RenderTarget*))
+{
+    pOnRenderedCallback = onRenderedCallback;
+}
+
+float Direct2DViewPort::getX()
+{
+    return mX;
+}
+
+float Direct2DViewPort::getY()
+{
+    return mY;
+}
+
+float Direct2DViewPort::getWidth()
+{
+    return mWidth;
+}
+
+float Direct2DViewPort::getHeight()
+{
+    return mHeight;
+}
+
+void Direct2DViewPort::setBounds(float x, float y, float w, float h)
 {
     // Set the position and size of the control
     mX = x;
     mY = y;
-    mW = x + w;
-    mH = y + h;
+    mWidth = w;
+    mHeight = h;
 }
 
-void Direct2DViewPort::OnRender(ID2D1RenderTarget* renderTarget)
+bool Direct2DViewPort::tryGetNextFrame(YuvFrame& frame)
 {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, 255);
-
-    int r = dis(gen);
-    int g = dis(gen);
-    int b = dis(gen);
-    mColor = { r / (float)255, g / (float)255, b / (float)255, 255 };
-    try {
-        Frame frame;
-        if (readPos_.load(std::memory_order_acquire) == writePos_.load(std::memory_order_acquire)) {
-            size_t lastReadPos = (readPos_.load(std::memory_order_relaxed) + capacity_ - 1) % capacity_;
-            if (buffer_[lastReadPos].data) {
-                frame = buffer_[lastReadPos];
-            }
-            else
-            {
-                return;
-            }
+    if (mReadPos.load(std::memory_order_acquire) == mWritePos.load(std::memory_order_acquire)) {
+        size_t lastReadPos = (mReadPos.load(std::memory_order_relaxed) + mCapacity - 1) % mCapacity;
+        if (mBuffer[lastReadPos].data) {
+            frame = mBuffer[lastReadPos];
         }
         else
         {
-            frame = buffer_[readPos_.load(std::memory_order_relaxed)];
+            return false;
         }
-        size_t nextReadPos = (readPos_.load(std::memory_order_relaxed) + 1) % capacity_;
-        readPos_.store(nextReadPos, std::memory_order_release);
-
-        uint8_t* dataY = (uint8_t*)frame.data.get();
-        uint8_t* dataU = (uint8_t*)frame.data.get() + (frame.yStride * frame.height);
-        uint8_t* dataV = dataU + (frame.uStride * (frame.height >> 1));
-        size_t argb_size = frame.width * frame.height * 4;
-        uint8_t* datargb = new uint8_t[argb_size];
-        libyuv::I420ToARGB(dataY, frame.yStride, dataU, frame.uStride, dataV, frame.vStride, datargb, frame.width * 4, frame.width, frame.height);
-        delete[] datargb;
-        // Fill the rectangle using the mColor variable
-        auto brush = Direct2DHost::getInstance()->getBrush();
-        if (!renderTarget || !brush)
-        {
-            return;
-        }
-        D2D1_MATRIX_3X2_F originalMatrix;
-        renderTarget->GetTransform(&originalMatrix);
-        // Set the translation matrix
-        auto matrix = D2D1::Matrix3x2F::Translation(mX, mY);
-        renderTarget->SetTransform(matrix);
-        // Draw the black border
-        D2D1_COLOR_F color = { 0, 0, 0, 1 };
-        brush->SetColor(color);
-        renderTarget->FillRectangle({ 0, 0, mW - mX,  mH - mY }, brush);
-        brush->SetColor(mColor);
-        renderTarget->FillRectangle({ 2, 2, mW - mX - 4,  mH - mY - 4 }, brush);
-        // Call the callback function
-        if (mRenderedCallback)
-        {
-            mRenderedCallback();
-        }
-        // Save the original transformation matrix
-        renderTarget->SetTransform(originalMatrix);
     }
-    catch (std::exception& e) {
+    else
+    {
+        frame = mBuffer[mReadPos.load(std::memory_order_relaxed)];
     }
+    size_t nextReadPos = (mReadPos.load(std::memory_order_relaxed) + 1) % mCapacity;
+    mReadPos.store(nextReadPos, std::memory_order_release);
+    return true;
 }
 
-void Direct2DViewPort::RegisterRenderedCallback(void (*onRenderedCallback)(ID2D1RenderTarget*))
+void Direct2DViewPort::useYuvFrameToUpdateFrameRgb(YuvFrame& frame)
 {
-    pOnRenderedCallback = onRenderedCallback;
+    uint8_t* dataY = (uint8_t*)frame.data.get();
+    uint8_t* dataU = (uint8_t*)frame.data.get() + (frame.yStride * frame.height);
+    uint8_t* dataV = dataU + (frame.uStride * (frame.height >> 1));
+    libyuv::I420ToRGB24(dataY,
+        frame.yStride,
+        dataU,
+        frame.uStride,
+        dataV,
+        frame.vStride,
+        pRgbFrame,
+        frame.width * 3,
+        frame.width,
+        frame.height);
 }

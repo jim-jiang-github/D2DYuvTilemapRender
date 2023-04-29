@@ -26,7 +26,7 @@ void RenderViewPort::SetBounds(float x, float y, float w, float h)
     mH = h;
     if (pDirect2DViewPort)
     {
-        pDirect2DViewPort->SetBounds(x, y, w, h);
+        pDirect2DViewPort->setBounds(x, y, w, h);
     }
 }
 
@@ -37,7 +37,7 @@ void RenderViewPort::OnFrame(System::IntPtr yData, System::IntPtr uData, System:
         unsigned char* pYData = reinterpret_cast<unsigned char*>(yData.ToPointer());
         unsigned char* pUData = reinterpret_cast<unsigned char*>(uData.ToPointer());
         unsigned char* pVData = reinterpret_cast<unsigned char*>(vData.ToPointer());
-        pDirect2DViewPort->OnFrame(pYData, pUData, pVData, yStride, uStride, vStride, width, height);
+        pDirect2DViewPort->onYuvFrame(pYData, pUData, pVData, yStride, uStride, vStride, width, height);
     }
 }
 

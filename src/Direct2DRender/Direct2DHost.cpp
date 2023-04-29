@@ -1,4 +1,4 @@
-#include "pch.h"
+#include "logging.h"
 #include "Direct2DHost.h"
 
 IDirect2DHost* IDirect2DHost::getInstance()
@@ -51,10 +51,13 @@ bool Direct2DHost::initialize(HWND hWnd, float bgR, float bgG, float bgB)
         return false;
     }
 
+    if (!updateOrCreateYuvRenderBitmap())
+    {
+        LOG_E("pYuvRenderBitmap create false");
+        return false;
+    }
+
     pD2dRenderTarget->CreateSolidColorBrush(mBackgroundColor, &pBrush);
-    pD2dRenderTarget->CreateBitmap(D2D1::SizeU(mLastWidth, mLastHeight),
-        D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)),
-        &pRenderBitmap);
 
     return true;
 }
@@ -119,6 +122,13 @@ void Direct2DHost::removeDirect2DViewPort(std::shared_ptr<Direct2DViewPort> view
 
 void Direct2DHost::renderOnce()
 {
+    if (mIsNeedResize)
+    {
+        mIsNeedResize = false;
+        resizeSwapChainBuffers();
+        updateOrCreateRenderTarget();
+        updateOrCreateYuvRenderBitmap();
+    }
     onRender();
 }
 
@@ -194,32 +204,12 @@ HRESULT Direct2DHost::CreateDeviceAndSwapChain(HWND hWnd, ID3D11Device** d3DDevi
     return hr;
 }
 
-void Direct2DHost::onRender()
-{
-    if (mIsNeedResize)
-    {
-        mIsNeedResize = false;
-        resizeSwapChainBuffers();
-    }
-    if (!pD2dRenderTarget)
-    {
-        return;
-    }
-    pD2dRenderTarget->BeginDraw();
-    pD2dRenderTarget->Clear(mBackgroundColor);
-    for (auto iter : mVecViewPort)
-    {
-        iter->OnRender(pD2dRenderTarget);
-    }
-    pD2dRenderTarget->EndDraw();
-    pSwapChain->Present(1, 0);
-}
-
-void Direct2DHost::resizeSwapChainBuffers()
+bool Direct2DHost::resizeSwapChainBuffers()
 {
     if (!pSwapChain)
     {
-        return;
+        LOG_E("pSwapChain is null");
+        return false;
     }
     HRESULT hr = pSwapChain->ResizeBuffers(
         2,                // Double buffer
@@ -230,9 +220,9 @@ void Direct2DHost::resizeSwapChainBuffers()
     );
     if (FAILED(hr))
     {
-        return;
+        return false;
     }
-    updateOrCreateRenderTarget();
+    return true;
 }
 
 bool Direct2DHost::updateOrCreateRenderTarget()
@@ -265,4 +255,48 @@ bool Direct2DHost::updateOrCreateRenderTarget()
         return false;
     }
     return true;
+}
+
+bool Direct2DHost::updateOrCreateYuvRenderBitmap()
+{
+    if (pYuvRenderBitmap != nullptr)
+    {
+        pYuvRenderBitmap->Release();
+        pYuvRenderBitmap = nullptr;
+    }
+    HRESULT hr = pD2dRenderTarget->CreateBitmap(D2D1::SizeU(mLastWidth, mLastHeight),
+        D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)),
+        &pYuvRenderBitmap);
+    if (FAILED(hr))
+    {
+        return false;
+    }
+    return true;
+}
+
+void Direct2DHost::onRender()
+{
+    if (!pD2dRenderTarget)
+    {
+        return;
+    }
+    pD2dRenderTarget->BeginDraw();
+    pD2dRenderTarget->Clear(mBackgroundColor);
+
+    for (auto iter : mVecViewPort)
+    {
+        //offset render position.
+        D2D1_MATRIX_3X2_F originalMatrix;
+        pD2dRenderTarget->GetTransform(&originalMatrix);
+        auto matrix = D2D1::Matrix3x2F::Translation(iter->getX(), iter->getY());
+        pD2dRenderTarget->SetTransform(matrix);
+
+        iter->onRender(pYuvRenderBitmap, pD2dRenderTarget);
+
+        pD2dRenderTarget->SetTransform(originalMatrix);
+    }
+    //pD2dRenderTarget->DrawBitmap(pYuvRenderBitmap);
+
+    pD2dRenderTarget->EndDraw();
+    pSwapChain->Present(1, 0);
 }

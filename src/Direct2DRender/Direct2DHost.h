@@ -24,14 +24,18 @@ public:
     virtual void addDirect2DViewPort(std::shared_ptr<Direct2DViewPort> viewPort) override;
     virtual void removeDirect2DViewPort(std::shared_ptr<Direct2DViewPort> viewPort) override;
     virtual void renderOnce() override;
+
     virtual ID2D1RenderTarget* getRenderTarget() override;
     virtual ID2D1SolidColorBrush* getBrush() override;
+
 private:
     DXGI_SWAP_CHAIN_DESC createSwapChain(HWND hWnd);
     HRESULT CreateDeviceAndSwapChain(HWND hWnd, ID3D11Device** d3DDevice, IDXGISwapChain** swapChain);
-    void onRender();
-    void resizeSwapChainBuffers();
+    bool resizeSwapChainBuffers();
     bool updateOrCreateRenderTarget();
+    bool updateOrCreateYuvRenderBitmap();
+    void onRender();
+
 private:
     ID2D1Factory1* pFactory = nullptr;
     IDXGISwapChain* pSwapChain = nullptr;
@@ -41,7 +45,7 @@ private:
     int mLastWidth = 0;
     int mLastHeight = 0;
     bool mIsNeedResize = false;
-    ID2D1Bitmap* pRenderBitmap = nullptr;
+    ID2D1Bitmap* pYuvRenderBitmap = nullptr;
 
     D2D1_COLOR_F mBackgroundColor = { 0, 0, 0, 0 };
     std::vector<std::shared_ptr<Direct2DViewPort>> mVecViewPort;

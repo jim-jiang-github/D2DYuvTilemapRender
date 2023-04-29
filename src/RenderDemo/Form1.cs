@@ -21,6 +21,8 @@ namespace RenderDemo
             {
                 int width = 1920 / 5;
                 int height = 1080 / 5;
+                //int width = 2400 / 5;
+                //int height = 1600 / 5;
                 int yStride = width;
                 int uStride = width / 2;
                 int vStride = width / 2;
@@ -56,7 +58,7 @@ namespace RenderDemo
         {
             InitializeComponent();
             WindowState = FormWindowState.Maximized;
-            //FormBorderStyle = FormBorderStyle.None;
+            FormBorderStyle = FormBorderStyle.None;
         }
 
         protected override void OnShown(EventArgs e)
@@ -81,7 +83,7 @@ namespace RenderDemo
                 while (true)
                 {
                     _renderHost.RenderOnce();
-                    Thread.Sleep(33);
+                    Thread.Sleep(40);
                 }
             })
             { IsBackground = true }.Start();
