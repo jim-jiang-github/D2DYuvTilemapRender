@@ -15,83 +15,55 @@ namespace RenderDemo
     public class RenderViewPortImpl : RenderViewPort
     {
         private readonly Random _random = new Random();
+        private YuvFile yuvFile = YuvFile.Load("480x270.yuv", 480, 270);
         public RenderViewPortImpl()
         {
-            YuvLoader yuvLoader = new YuvLoader(YuvFile.Load("320x180.yuv", 320, 180), 30);
-            //YuvLoader yuvLoader = new YuvLoader(YuvFile.Load("480x270.yuv", 480, 270), 30);
+            //YuvLoader yuvLoader = new YuvLoader(YuvFile.Load(720, 640), 30);
+            //YuvLoader yuvLoader = new YuvLoader(YuvFile.Load("320x180.yuv", 320, 180), 30);
+            YuvLoader yuvLoader = new YuvLoader(yuvFile, 30, _random.Next(0, 30));
             yuvLoader.YuvFrameChanged += (yData, uData, vData, yStride, uStride, vStride, width, height) =>
             {
                 OnFrame(yData, uData, vData, yStride, uStride, vStride, width, height);
             };
             yuvLoader.Play();
-            //new Thread(() =>
-            //{
-            //    int width = 1920 / 5;
-            //    int height = 1080 / 5;
-            //    //int width = 2400 / 5;
-            //    //int height = 1600 / 5;
-            //    int yStride = width;
-            //    int uStride = width / 2;
-            //    int vStride = width / 2;
-
-            //    int ySize = yStride * height;
-            //    int uSize = uStride * height / 2;
-            //    int vSize = vStride * height / 2;
-
-            //    byte[] yuvData = new byte[ySize + uSize + vSize];
-            //    while (true)
-            //    {
-            //        _random.NextBytes(yuvData);
-            //        IntPtr yIntPtr = Marshal.AllocHGlobal(yuvData.Length);
-            //        Marshal.Copy(yuvData, 0, yIntPtr, yuvData.Length);
-            //        OnFrame(yIntPtr, yIntPtr + ySize, yIntPtr + ySize + uSize, yStride, uStride, vStride, width, height);
-            //        Marshal.FreeHGlobal(yIntPtr);
-            //        Thread.Sleep(33);
-            //    }
-            //})
-            //{ IsBackground = true }.Start();
         }
 
         public override void OnRendered(RenderGraphics g, float clientWidth, float clientHeight)
         {
             base.OnRendered(g, clientWidth, clientHeight);
-            //g.DrawRectangle(0, 0, clientWidth, clientHeight, new DColor32F(1, 0, 0, 0), 2);
-            //g.FillRectangle(0, clientHeight - 45, clientWidth / 2, 45, new DColor32F(0.7F, 0, 0, 0));
-            //float avatarX = (clientWidth - clientWidth / 3) / 2;
-            //float avatarY = (clientHeight - clientWidth / 3) / 2;
-            //float avatarW = clientWidth / 3;
-            //float avatarH = clientWidth / 3;
-            //g.FillEllipse(avatarX, avatarY, avatarW, avatarH, new DColor32F(1, 1, 1, 1));
-            //g.FillEllipse(avatarX + 3, avatarY + 3, avatarW - 6, avatarH - 6, new DColor32F(1, 0.4F, 0.7F, 0.8F));
+            g.DrawRectangle(0, 0, clientWidth, clientHeight, new DColor32F(1, 0, 0, 0), 2);
+            g.FillRectangle(0, clientHeight - 45, clientWidth / 2, 45, new DColor32F(0.7F, 0, 0, 0));
+            float avatarCenterX = clientWidth / 2;
+            float avatarCenterY = clientHeight / 2;
+            float avatarRadiusX = clientWidth / 3 / 2;
+            float avatarRadiusY = clientWidth / 3 / 2;
+            g.FillEllipse(avatarCenterX, avatarCenterY, avatarRadiusX, avatarRadiusY, new DColor32F(1, 1, 1, 1));
+            g.FillEllipse(avatarCenterX, avatarCenterY, avatarRadiusX - 6, avatarRadiusY - 6, new DColor32F(1, 0.4F, 0.7F, 0.8F));
         }
     }
     public partial class Form1 : Form
     {
         private RenderHost _renderHost;
+        private const int VIEWPORT_COUNT = 25;
+        private readonly RenderViewPortImpl[] _renderViewPortImpls = new RenderViewPortImpl[VIEWPORT_COUNT];
         public Form1()
         {
             InitializeComponent();
             WindowState = FormWindowState.Maximized;
-            FormBorderStyle = FormBorderStyle.None;
+            //FormBorderStyle = FormBorderStyle.None;
         }
 
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            _renderHost = RenderHost.Load(Handle, new DColor24(0, 0, 0));
-            int count = 25;
-            RenderViewPortImpl[] renderViewPortImpls = new RenderViewPortImpl[count];
-            for (int i = 0; i < count; i++)
+            _renderHost = RenderHost.Load(Handle, new DColor24F(50F / 255F, 50F / 255F, 50F / 255F));
+            for (int i = 0; i < _renderViewPortImpls.Length; i++)
             {
-                int w = 2400 / 5;
-                int h = 1600 / 5;
-                int x = i % 5 * w;
-                int y = i / 5 * h;
                 RenderViewPortImpl renderViewPort = new RenderViewPortImpl();
-                renderViewPort.SetBounds(x, y, w, h);
                 _renderHost.AddRenderViewPort(renderViewPort);
-                renderViewPortImpls[i] = renderViewPort;
+                _renderViewPortImpls[i] = renderViewPort;
             }
+            ResizeHost();
             new Thread(() =>
             {
                 while (true)
@@ -106,16 +78,30 @@ namespace RenderDemo
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
-            if (_renderHost == null)
-            {
-                return;
-            }
-            _renderHost.Resize(ClientSize.Width, ClientSize.Height);
+            ResizeHost();
         }
 
         protected override void OnClosing(CancelEventArgs e)
         {
             base.OnClosing(e);
+        }
+
+        private void ResizeHost()
+        {
+            if (_renderHost == null)
+            {
+                return;
+            }
+            _renderHost.Resize(ClientSize.Width, ClientSize.Height);
+            for (int i = 0; i < _renderViewPortImpls.Length; i++)
+            {
+                var renderViewPort = _renderViewPortImpls[i];
+                int w = ClientSize.Width / 5;
+                int h = ClientSize.Height / 5;
+                int x = i % 5 * w;
+                int y = i / 5 * h;
+                renderViewPort.SetBounds(x, y, w, h);
+            }
         }
     }
 }

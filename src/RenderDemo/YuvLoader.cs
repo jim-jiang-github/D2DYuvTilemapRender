@@ -17,11 +17,13 @@ namespace RenderDemo
         private readonly int _fps = 25;
         private bool _isPlaying = false;
         private Thread _thread;
+        private int _startIndex = 0;
 
-        public YuvLoader(YuvFile videoFile, int fps = 25)
+        public YuvLoader(YuvFile videoFile, int fps = 25, int startIndex = 0)
         {
             _videoFile = videoFile;
             _fps = fps;
+            _startIndex = startIndex;
         }
 
         public void Play()
@@ -36,19 +38,19 @@ namespace RenderDemo
             int uSize = _videoFile.FrameWidth * _videoFile.FrameHeight / 4;
             _thread = new Thread(() =>
             {
-                for (int i = 0; i < _videoFile.FrameCount; i++)
+                for (; _startIndex < _videoFile.FrameCount; _startIndex++)
                 {
                     if (_isPlaying)
                     {
-                        IntPtr yuvDta = _videoFile.GetFrame(i);
+                        IntPtr yuvDta = _videoFile.GetFrame(_startIndex);
                         IntPtr y = yuvDta;
                         IntPtr u = y + ySize;
                         IntPtr v = u + uSize;
                         YuvFrameChanged?.Invoke(y, u, v, yStride, uStride, vStride, _videoFile.FrameWidth, _videoFile.FrameHeight);
                         Thread.Sleep(interval);
-                        if (i == _videoFile.FrameCount - 1)
+                        if (_startIndex == _videoFile.FrameCount - 1)
                         {
-                            i = 0;
+                            _startIndex = 0;
                         }
                     }
                 }

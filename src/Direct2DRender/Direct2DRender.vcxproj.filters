@@ -5,9 +5,12 @@
     <ClInclude Include="Direct2DViewPort.h" />
     <ClInclude Include="IDirect2DHost.h" />
     <ClInclude Include="logging.h" />
+    <ClInclude Include="Utils.h" />
+    <ClInclude Include="RenderShapeDescription.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Direct2DHost.cpp" />
     <ClCompile Include="Direct2DViewPort.cpp" />
+    <ClCompile Include="RenderShapeDescription.cpp" />
   </ItemGroup>
 </Project>

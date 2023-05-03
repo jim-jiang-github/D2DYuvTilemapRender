@@ -9,7 +9,7 @@ public ref class RenderHost
 private:
     RenderHost(IDirect2DHost* direct2DHost);
 public:
-    static RenderHost^ Load(System::IntPtr handle, DColor24 bgColor)
+    static RenderHost^ Load(System::IntPtr handle, DColor24F bgColor)
     {
         HWND hWnd = reinterpret_cast<HWND>(handle.ToPointer());
         IDirect2DHost* direct2DHost = IDirect2DHost::getInstance();

@@ -48,6 +48,8 @@ internal:
 private:
     RenderGraphics^ pRenderGraphics;
     Direct2DViewPort* pDirect2DViewPort = nullptr;
+
+    System::Action^ mYuvRenderedCallbackWarpper = nullptr;
     float mX = 0;
     float mY = 0;
     float mW = 0;

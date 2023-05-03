@@ -131,6 +131,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>..\3rd_party\libyuv\include</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -149,6 +151,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>..\3rd_party\libyuv\include</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -167,10 +171,13 @@
     <ClInclude Include="Direct2DViewPort.h" />
     <ClInclude Include="IDirect2DHost.h" />
     <ClInclude Include="logging.h" />
+    <ClInclude Include="RenderShapeDescription.h" />
+    <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Direct2DHost.cpp" />
     <ClCompile Include="Direct2DViewPort.cpp" />
+    <ClCompile Include="RenderShapeDescription.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\libyuv\libyuv.vcxproj">

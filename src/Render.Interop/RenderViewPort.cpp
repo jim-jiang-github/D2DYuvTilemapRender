@@ -2,11 +2,11 @@
 
 RenderViewPort::RenderViewPort()
 {
-    pRenderGraphics = gcnew RenderGraphics();
-    System::Action^ callback = gcnew System::Action(this, &RenderViewPort::OnRenderedInternal);
-    RenderedCallback nativeCallback = static_cast<RenderedCallback>(System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(callback).ToPointer());
+    mYuvRenderedCallbackWarpper = gcnew System::Action(this, &RenderViewPort::OnRenderedInternal);
+    YuvRenderedCallback yuvRenderedCallbackNative = static_cast<YuvRenderedCallback>(System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(mYuvRenderedCallbackWarpper).ToPointer());
 
-    pDirect2DViewPort = new Direct2DViewPort(nativeCallback);
+    pDirect2DViewPort = new Direct2DViewPort(yuvRenderedCallbackNative);
+    pRenderGraphics = gcnew RenderGraphics(pDirect2DViewPort);
 }
 
 RenderViewPort::~RenderViewPort()
@@ -14,6 +14,10 @@ RenderViewPort::~RenderViewPort()
     if (pDirect2DViewPort)
     {
         pDirect2DViewPort = nullptr;
+    }
+    if (mYuvRenderedCallbackWarpper)
+    {
+        mYuvRenderedCallbackWarpper = nullptr;
     }
 }
 
@@ -29,7 +33,7 @@ void RenderViewPort::SetBounds(float x, float y, float w, float h)
     }
 }
 
-void RenderViewPort::OnFrame(System::IntPtr yData, System::IntPtr uData, System::IntPtr vData, int yStride, int uStride, int vStride, int width, int height) 
+void RenderViewPort::OnFrame(System::IntPtr yData, System::IntPtr uData, System::IntPtr vData, int yStride, int uStride, int vStride, int width, int height)
 {
     if (pDirect2DViewPort)
     {
@@ -47,9 +51,7 @@ void RenderViewPort::OnRendered(RenderGraphics^ g, float clientWidth, float clie
 
 void RenderViewPort::OnRenderedInternal()
 {
-    pRenderGraphics->SuspendRender();
     OnRendered(pRenderGraphics, mW, mH);
-    pRenderGraphics->ResumeRender();
 }
 
 Direct2DViewPort* RenderViewPort::getDirect2DViewPort()
