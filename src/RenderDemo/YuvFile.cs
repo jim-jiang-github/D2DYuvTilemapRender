@@ -55,7 +55,7 @@ namespace RenderDemo
         {
             FrameWidth = frameWidth;
             FrameHeight = frameHeight;
-            FrameCount = 10;
+            FrameCount = 30;
             int _frameSize = FrameWidth * FrameHeight * 3 / 2;
             long bufferLength = FrameCount * _frameSize;
             byte[] yuvData = new byte[bufferLength];

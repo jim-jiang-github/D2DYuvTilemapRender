@@ -15,12 +15,12 @@ namespace RenderDemo
     public class RenderViewPortImpl : RenderViewPort
     {
         private readonly Random _random = new Random();
-        private YuvFile yuvFile = YuvFile.Load("480x270.yuv", 480, 270);
+        //Also can use yuv file
+        //private YuvFile _yuvFile = YuvFile.Load("480x270.yuv", 480, 270);
+        private YuvFile _yuvFile = YuvFile.Load(480, 270);
         public RenderViewPortImpl()
         {
-            //YuvLoader yuvLoader = new YuvLoader(YuvFile.Load(720, 640), 30);
-            //YuvLoader yuvLoader = new YuvLoader(YuvFile.Load("320x180.yuv", 320, 180), 30);
-            YuvLoader yuvLoader = new YuvLoader(yuvFile, 30, _random.Next(0, 30));
+            YuvLoader yuvLoader = new YuvLoader(_yuvFile, 30, _random.Next(0, 30));
             yuvLoader.YuvFrameChanged += (yData, uData, vData, yStride, uStride, vStride, width, height) =>
             {
                 OnFrame(yData, uData, vData, yStride, uStride, vStride, width, height);
@@ -50,7 +50,7 @@ namespace RenderDemo
         {
             InitializeComponent();
             WindowState = FormWindowState.Maximized;
-            //FormBorderStyle = FormBorderStyle.None;
+            FormBorderStyle = FormBorderStyle.None;
         }
 
         protected override void OnShown(EventArgs e)
@@ -73,6 +73,26 @@ namespace RenderDemo
                 }
             })
             { IsBackground = true }.Start();
+            //new Thread(() =>
+            //{
+            //    int x = 0;
+            //    while (true)
+            //    {
+            //        if (_renderViewPortImpls.Length > 0)
+            //        {
+            //            var renderViewPort = _renderViewPortImpls[0];
+
+            //            var l = renderViewPort.Left;
+            //            var t = renderViewPort.Top;
+            //            var r = renderViewPort.Right;
+            //            var b = renderViewPort.Bottom;
+
+            //            renderViewPort.SetBounds((l + x++) % ClientSize.Width, t, r, b);
+            //        }
+            //        Thread.Sleep(10);
+            //    }
+            //})
+            //{ IsBackground = true }.Start();
         }
 
         protected override void OnResize(EventArgs e)
