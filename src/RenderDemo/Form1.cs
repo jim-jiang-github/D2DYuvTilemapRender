@@ -15,12 +15,16 @@ namespace RenderDemo
     public class RenderViewPortImpl : RenderViewPort
     {
         private readonly Random _random = new Random();
+        private const int INPUT_FPS = 30;
+
         //Also can use yuv file
         //private YuvFile _yuvFile = YuvFile.Load("480x270.yuv", 480, 270);
         private YuvFile _yuvFile = YuvFile.Load(480, 270);
+
         public RenderViewPortImpl()
         {
-            YuvLoader yuvLoader = new YuvLoader(_yuvFile, 30, _random.Next(0, 30));
+            var startIndex = _random.Next(0, 30);
+            YuvLoader yuvLoader = new YuvLoader(_yuvFile, INPUT_FPS, startIndex);
             yuvLoader.YuvFrameChanged += (yData, uData, vData, yStride, uStride, vStride, width, height) =>
             {
                 OnFrame(yData, uData, vData, yStride, uStride, vStride, width, height);
@@ -44,6 +48,7 @@ namespace RenderDemo
     public partial class Form1 : Form
     {
         private RenderHost _renderHost;
+        private const int OUTPUT_FPS = 25;
         private const int VIEWPORT_COUNT = 25;
         private readonly RenderViewPortImpl[] _renderViewPortImpls = new RenderViewPortImpl[VIEWPORT_COUNT];
         public Form1()
@@ -69,7 +74,7 @@ namespace RenderDemo
                 while (true)
                 {
                     _renderHost.RenderOnce();
-                    Thread.Sleep(40);
+                    Thread.Sleep(1000 / OUTPUT_FPS);
                 }
             })
             { IsBackground = true }.Start();
@@ -87,13 +92,28 @@ namespace RenderDemo
             //            var r = renderViewPort.Right;
             //            var b = renderViewPort.Bottom;
 
-            //            renderViewPort.SetBounds((l + x++) % ClientSize.Width, t, r, b);
+            //            //renderViewPort.SetBounds((l + x++) % ClientSize.Width, t, r, b);
+            //            renderViewPort.SetBounds(200, t, r, b);
             //        }
-            //        Thread.Sleep(10);
+            //        Thread.Sleep(1000000);
             //    }
             //})
             //{ IsBackground = true }.Start();
         }
+
+        //protected override void OnMouseDown(MouseEventArgs e)
+        //{
+        //    base.OnMouseDown(e);
+        //    var renderViewPort = _renderViewPortImpls[0];
+
+        //    var l = renderViewPort.Left;
+        //    var t = renderViewPort.Top;
+        //    var r = renderViewPort.Right;
+        //    var b = renderViewPort.Bottom;
+
+        //    //renderViewPort.SetBounds((l + x++) % ClientSize.Width, t, r, b);
+        //    renderViewPort.SetBounds(200, t, r, b);
+        //}
 
         protected override void OnResize(EventArgs e)
         {
@@ -116,10 +136,11 @@ namespace RenderDemo
             for (int i = 0; i < _renderViewPortImpls.Length; i++)
             {
                 var renderViewPort = _renderViewPortImpls[i];
-                int w = ClientSize.Width / 5;
-                int h = ClientSize.Height / 5;
-                int x = i % 5 * w;
-                int y = i / 5 * h;
+                var splitCount = (int)Math.Sqrt(VIEWPORT_COUNT);
+                int w = ClientSize.Width / splitCount;
+                int h = ClientSize.Height / splitCount;
+                int x = i % splitCount * w;
+                int y = i / splitCount * h;
                 renderViewPort.SetBounds(x, y, w, h);
             }
         }

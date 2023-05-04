@@ -11,7 +11,13 @@ namespace RenderDemo
         //Random byte to mock yuv data.
         public static YuvFile Load(int frameWidth, int frameHeight)
         {
-            return new YuvFile(frameWidth, frameHeight);
+            int frameCount = 30;
+            int frameSize = frameWidth * frameHeight * 3 / 2;
+            long bufferLength = frameCount * frameSize;
+            byte[] yuvData = new byte[bufferLength];
+            Random random = new Random();
+            random.NextBytes(yuvData);
+            return new YuvFile(yuvData, frameWidth, frameHeight);
         }
 
         public static YuvFile Load(string yuvPath, int frameWidth, int frameHeight)
@@ -20,7 +26,9 @@ namespace RenderDemo
             {
                 try
                 {
-                    return new YuvFile(yuvPath, frameWidth, frameHeight);
+                    using var fileStream = new FileStream(yuvPath, FileMode.Open);
+                    using var binaryReader = new BinaryReader(fileStream);
+                    return new YuvFile(binaryReader.ReadBytes((int)fileStream.Length), frameWidth, frameHeight);
                 }
                 catch
                 {
@@ -39,30 +47,14 @@ namespace RenderDemo
         public int FrameHeight { get; private set; }
         public int FrameCount { get; private set; }
 
-        private YuvFile(string yuvPath, int frameWidth, int frameHeight)
+        private YuvFile(byte[] yuvData, int frameWidth, int frameHeight)
         {
             FrameWidth = frameWidth;
             FrameHeight = frameHeight;
-            int _frameSize = FrameWidth * FrameHeight * 3 / 2;
-            using var fileStream = new FileStream(yuvPath, FileMode.Open);
-            using var binaryReader = new BinaryReader(fileStream);
-            _backBuffer = Marshal.AllocCoTaskMem((int)fileStream.Length);
-            FrameCount = (int)(fileStream.Length / _frameSize);
-            Marshal.Copy(binaryReader.ReadBytes((int)fileStream.Length), 0, _backBuffer, (int)fileStream.Length);
-        }
-
-        private YuvFile(int frameWidth, int frameHeight)
-        {
-            FrameWidth = frameWidth;
-            FrameHeight = frameHeight;
-            FrameCount = 30;
-            int _frameSize = FrameWidth * FrameHeight * 3 / 2;
-            long bufferLength = FrameCount * _frameSize;
-            byte[] yuvData = new byte[bufferLength];
-            Random _random = new Random();
-            _random.NextBytes(yuvData);
-            _backBuffer = Marshal.AllocCoTaskMem((int)bufferLength);
-            Marshal.Copy(yuvData, 0, _backBuffer, (int)bufferLength);
+            int frameSize = FrameWidth * FrameHeight * 3 / 2;
+            _backBuffer = Marshal.AllocCoTaskMem(yuvData.Length);
+            FrameCount = yuvData.Length / frameSize;
+            Marshal.Copy(yuvData, 0, _backBuffer, yuvData.Length);
         }
 
         public IntPtr GetFrame(int index)
