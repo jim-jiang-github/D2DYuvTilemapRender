@@ -190,9 +190,6 @@
     <ClCompile Include="..\3rd_party\libyuv\source\row_neon64.cc">
       <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="..\3rd_party\libyuv\source\row_rvv.cc">
-      <Filter>source</Filter>
-    </ClCompile>
     <ClCompile Include="..\3rd_party\libyuv\source\row_win.cc">
       <Filter>source</Filter>
     </ClCompile>
